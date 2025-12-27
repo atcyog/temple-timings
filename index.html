@@ -1,118 +1,127 @@
-<!DOCTYPE html>
-<html lang="en">
+<!doctype html>
+<html lang="ta">
 <head>
-  <meta charset="UTF-8" />
+  <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Temple Timings</title>
-
-  <!-- PWA basics -->
-  <meta name="theme-color" content="#7a1f1f" />
-  <link rel="manifest" href="data:application/json,{
-    &quot;name&quot;:&quot;Temple Timings&quot;,
-    &quot;short_name&quot;:&quot;Temple&quot;,
-    &quot;start_url&quot;:&quot;.&quot;,
-    &quot;display&quot;:&quot;standalone&quot;
-  }">
-
+  <title>Tamil Nadu – Kumbabishegam Tracker</title>
   <style>
-    body {
-      margin: 0;
-      font-family: system-ui, sans-serif;
-      background: #fff8f0;
-      color: #2b2b2b;
-    }
-    header {
-      background: #7a1f1f;
-      color: white;
-      padding: 16px;
-      text-align: center;
-    }
-    .card {
-      background: white;
-      margin: 16px;
-      padding: 16px;
-      border-radius: 12px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-    }
-    .time {
-      font-size: 18px;
-      margin: 8px 0;
-    }
-    footer {
-      text-align: center;
-      font-size: 14px;
-      color: #555;
-      padding: 24px 16px;
-    }
-    a {
-      color: #7a1f1f;
-      text-decoration: none;
-      font-weight: 500;
-    }
+    body { font-family: system-ui, sans-serif; margin: 0; background:#fff8f0; color:#222; }
+    header { background:#7a1f1f; color:#fff; padding:16px; }
+    .wrap { padding: 12px; }
+    .card { background:#fff; border-radius:12px; padding:12px; box-shadow: 0 2px 8px rgba(0,0,0,.08); margin: 12px 0; }
+    input, textarea { width:100%; padding:10px; border-radius:10px; border:1px solid #ddd; font-size: 14px; }
+    button { padding:10px 12px; border:0; border-radius:10px; background:#7a1f1f; color:#fff; font-size:14px; }
+    table { width:100%; border-collapse: collapse; }
+    th, td { text-align:left; padding:10px; border-bottom:1px solid #eee; vertical-align: top; }
+    th { position: sticky; top: 0; background:#fff; }
+    small { color:#555; }
+    .pill { display:inline-block; padding:2px 8px; border-radius:999px; background:#f3e0e0; color:#7a1f1f; font-size:12px; }
   </style>
 </head>
-
 <body>
-
 <header>
-  <h1>🛕 Temple Timings</h1>
-  <div id="today"></div>
+  <h2 style="margin:0;">🛕 Tamil Nadu – Kumbabishegam Dates</h2>
+  <div><small>Enter last known dates → get next possible year/month (rule-of-thumb: +12 years)</small></div>
 </header>
 
-<div class="card">
-  <h2>Main Temple</h2>
-  <div class="time">Morning: 5:30 AM – 12:00 PM</div>
-  <div class="time">Evening: 4:30 PM – 9:00 PM</div>
-</div>
+<div class="wrap">
+  <div class="card">
+    <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+      <button id="loadDemo">Load demo</button>
+      <button id="calc">Calculate</button>
+      <span class="pill">Date format: YYYY-MM-DD</span>
+    </div>
+    <p style="margin:10px 0 6px;"><b>Paste your temple data (CSV):</b></p>
+    <textarea id="csv" rows="8" placeholder="Temple Name, District, Last Kumbabishegam Date (YYYY-MM-DD)
+Arulmigu ______ Temple, Madurai, 2009-04-25
+..."></textarea>
+    <p style="margin:8px 0 0;"><small>Tip: Start with 20–50 temples you know. Later you can expand.</small></p>
+  </div>
 
-<div class="card">
-  <h3>🪔 Devotional Note</h3>
-  <p>
-    Traditional brass lamps and pooja articles are still preferred
-    for daily worship and special occasions.
-  </p>
-  <p>
-    <a href="https://wa.me/91XXXXXXXXXX" target="_blank">
-      Enquire on WhatsApp →
-    </a>
-  </p>
-</div>
+  <div class="card">
+    <h3 style="margin:0 0 8px;">Results</h3>
+    <div style="overflow:auto;">
+      <table id="tbl">
+        <thead>
+          <tr>
+            <th>Temple</th>
+            <th>District</th>
+            <th>Last date</th>
+            <th>Next possible (year–month)</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
 
-<footer>
-  <div>Updated regularly for devotees 🙏</div>
-</footer>
+  <div class="card">
+    <b>Note on “next possible”:</b>
+    <div style="margin-top:6px;">
+      Many temples follow a ~12-year rejuvenation cycle for kumbabishegam (actual scheduling can shift due to renovations, finances, approvals, and muhurtham). So this page gives a practical estimate, not a guarantee.
+    </div>
+  </div>
+</div>
 
 <script>
-  // Show today's date
-  const today = new Date();
-  document.getElementById("today").innerText =
-    today.toLocaleDateString("en-IN", {
-      weekday: "long",
-      day: "numeric",
-      month: "long"
-    });
-
-  // Simple offline cache
-  if ("serviceWorker" in navigator) {
-    const swCode = `
-      self.addEventListener('install', e => {
-        e.waitUntil(
-          caches.open('temple-cache').then(cache => {
-            return cache.addAll(['./']);
-          })
-        );
-      });
-      self.addEventListener('fetch', e => {
-        e.respondWith(
-          caches.match(e.request).then(r => r || fetch(e.request))
-        );
-      });
-    `;
-    const blob = new Blob([swCode], { type: "text/javascript" });
-    const swURL = URL.createObjectURL(blob);
-    navigator.serviceWorker.register(swURL);
+  // Rule-of-thumb: next = last + 12 years (keep same month; day is not important for "year-month").
+  function nextYearMonth(lastDateStr) {
+    if (!lastDateStr) return "";
+    const d = new Date(lastDateStr);
+    if (Number.isNaN(d.getTime())) return "Invalid date";
+    const next = new Date(d);
+    next.setFullYear(next.getFullYear() + 12);
+    const ym = next.toLocaleDateString("en-IN", { year: "numeric", month: "long" });
+    return ym; // e.g., "July 2037"
   }
-</script>
 
+  function parseCSV(text) {
+    // very simple CSV: Temple, District, Date
+    return text.split("\n")
+      .map(l => l.trim())
+      .filter(l => l && !l.startsWith("#"))
+      .map(line => {
+        const parts = line.split(",").map(s => s.trim());
+        return { temple: parts[0] || "", district: parts[1] || "", last: parts[2] || "" };
+      })
+      .filter(r => r.temple && r.temple.toLowerCase() !== "temple name");
+  }
+
+  function render(rows) {
+    const tbody = document.querySelector("#tbl tbody");
+    tbody.innerHTML = "";
+    rows.forEach(r => {
+      const tr = document.createElement("tr");
+      const next = nextYearMonth(r.last);
+      tr.innerHTML = `
+        <td>${escapeHtml(r.temple)}</td>
+        <td>${escapeHtml(r.district)}</td>
+        <td>${escapeHtml(r.last)}</td>
+        <td>${escapeHtml(next)}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, c => ({
+      "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"
+    }[c]));
+  }
+
+  document.getElementById("calc").addEventListener("click", () => {
+    const rows = parseCSV(document.getElementById("csv").value);
+    render(rows);
+  });
+
+  document.getElementById("loadDemo").addEventListener("click", () => {
+    document.getElementById("csv").value =
+`Temple Name, District, Last Kumbabishegam Date (YYYY-MM-DD)
+Arulmigu Example Temple, Chennai, 2013-06-10
+Arulmigu Example Amman Temple, Madurai, 2016-02-03
+Arulmigu Example Murugan Temple, Coimbatore, 2012-11-25`;
+  });
+</script>
 </body>
 </html>
+
